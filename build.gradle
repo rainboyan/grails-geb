@@ -1,13 +1,20 @@
 buildscript {
     repositories {
         mavenLocal()
+        mavenCentral()
         maven { url "https://repo.grails.org/grails/core" }
         maven { url 'https://repo.gradle.org/gradle/libs-releases' }
     }
     dependencies {
         classpath "org.grails:grails-gradle-plugin:$grailsVersion"
+        classpath "io.github.gradle-nexus:publish-plugin:1.3.0"
     }
 }
+
+ext."signing.keyId" = project.hasProperty("signing.keyId") ? project.getProperty('signing.keyId') : System.getenv('SIGNING_KEY_ID')
+ext."signing.password" = project.hasProperty("signing.password") ? project.getProperty('signing.password') : System.getenv('SIGNING_PASSPHRASE')
+ext."signing.secretKeyRingFile" = project.hasProperty("signing.secretKeyRingFile") ? project.getProperty('signing.secretKeyRingFile') : ("${System.properties['user.home']}${File.separator}.gnupg${File.separator}secring.gpg")
+ext.isReleaseVersion = !projectVersion.endsWith("SNAPSHOT")
 
 version projectVersion
 group "org.grails.plugins"
@@ -15,17 +22,25 @@ group "org.grails.plugins"
 apply plugin: 'java-library'
 apply plugin: 'idea'
 apply plugin: 'org.grails.grails-plugin'
+<<<<<<< HEAD
 apply plugin: 'org.grails.internal.grails-plugin-publish'
 
 sourceCompatibility = 17
 targetCompatibility = 17
+=======
+apply plugin: "io.github.gradle-nexus.publish-plugin"
+apply plugin: "maven-publish"
+apply plugin: "signing"
+>>>>>>> 5.4.x
 
 repositories {
     mavenLocal()
+    mavenCentral()
     maven { url "https://repo.grails.org/grails/core" }
 }
 
 configurations {
+    conf
     documentation.extendsFrom compileClasspath
 }
 
@@ -52,16 +67,12 @@ bootRun {
     systemProperty springProfilesActive, System.getProperty(springProfilesActive)
 }
 
-
-grailsPublish {
-    userOrg = 'grails'
-    githubSlug = 'grails/geb'
-    license {
-        name = 'Apache-2.0'
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(11)
     }
-    title = "Grails Geb Plugin"
-    desc = "Provides Integration with Geb for Functional Testing"
-    developers = [graemerocher: "Graeme Rocher", puneetbehl: "Puneet Behl"]
+    withJavadocJar()
+    withSourcesJar()
 }
 
 tasks.withType(Groovydoc) {
@@ -92,3 +103,83 @@ test {
 }
 
 bootJar.enabled = false
+
+jar {
+    enabled = true
+    archiveClassifier.set('')
+    includeEmptyDirs = false
+}
+
+def pluginXmlFile = layout.buildDirectory.file('classes/groovy/main/META-INF/grails-plugin.xml')
+def pluginDescriptor = artifacts.add('conf', pluginXmlFile.get().asFile) {
+    classifier 'plugin'
+    extension 'xml'
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            groupId = project.group
+            artifactId = 'geb'
+            version = project.version
+
+            versionMapping {
+                usage('java-api') {
+                    fromResolutionOf('runtimeClasspath')
+                }
+                usage('java-runtime') {
+                    fromResolutionResult()
+                }
+            }
+
+            from components.java
+            artifact pluginDescriptor
+
+            pom {
+                name = "Grails Geb Plugin"
+                description = "Grails Geb plugin that adds Geb functional testing code generation features."
+                url = 'https://github.com/rainboyan/grails-geb'
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0'
+                        url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'rainboyan'
+                        name = 'Michael Yan'
+                        email = 'rain@rainboyan.com'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:git://github.com/rainboyan/grails-geb.git'
+                    developerConnection = 'scm:git:ssh://github.com:rainboyan/grails-geb.git'
+                    url = 'https://github.com/rainboyan/grails-geb/tree/main'
+                }
+            }
+        }
+    }
+}
+
+nexusPublishing {
+    repositories {
+        sonatype {
+            def ossUser = System.getenv("SONATYPE_USERNAME") ?: project.hasProperty("sonatypeOssUsername") ? project.sonatypeOssUsername : ''
+            def ossPass = System.getenv("SONATYPE_PASSWORD") ?: project.hasProperty("sonatypeOssPassword") ? project.sonatypeOssPassword : ''
+            def ossStagingProfileId = System.getenv("SONATYPE_STAGING_PROFILE_ID") ?: project.hasProperty("sonatypeOssStagingProfileId") ? project.sonatypeOssStagingProfileId : ''
+            nexusUrl = uri("https://s01.oss.sonatype.org/service/local/")
+            snapshotRepositoryUrl = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
+            username = ossUser
+            password = ossPass
+            stagingProfileId = ossStagingProfileId
+        }
+    }
+}
+
+afterEvaluate {
+    signing {
+        required { isReleaseVersion && gradle.taskGraph.hasTask("publish") }
+        sign publishing.publications.maven
+    }
+}
