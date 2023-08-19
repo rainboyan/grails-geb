@@ -48,8 +48,6 @@ dependencies {
     documentation "com.github.javaparser:javaparser-core:3.15.14"
 }
 
-findMainClass.enabled = false
-
 bootRun {
     ignoreExitValue true
     jvmArgs(
