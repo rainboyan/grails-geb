@@ -22,16 +22,9 @@ group "org.grails.plugins"
 apply plugin: 'java-library'
 apply plugin: 'idea'
 apply plugin: 'org.grails.grails-plugin'
-<<<<<<< HEAD
-apply plugin: 'org.grails.internal.grails-plugin-publish'
-
-sourceCompatibility = 17
-targetCompatibility = 17
-=======
 apply plugin: "io.github.gradle-nexus.publish-plugin"
 apply plugin: "maven-publish"
 apply plugin: "signing"
->>>>>>> 5.4.x
 
 repositories {
     mavenLocal()
@@ -67,7 +60,7 @@ bootRun {
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(11)
+        languageVersion = JavaLanguageVersion.of(17)
     }
     withJavadocJar()
     withSourcesJar()
